@@ -1,0 +1,11 @@
+{
+  "versionCode": 2,
+  "versionName": "1.1",
+  "notes": "处方拍照识别、饭前饭后提醒、提醒自检",
+  "apkSize": 59254938,
+  "apkSha256": "60ee89105dbf78c62517bd30c789344ba0bf9e74ea5d2d58cc987cc8df09c56f",
+  "apkUrl": "https://github.com/yui1262/anshi/releases/download/v1.1/app-2.apk",
+  "patchUrl": "patch-2.bin",
+  "patchSize": 93450,
+  "patchSha256": "2c744045fbb1d90508d39c4976fcd7dee60b4d4027fe8729265941a9ccecf509"
+}
