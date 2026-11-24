@@ -16,86 +16,9 @@
 bash
 
 
-# 项目自带的 local.properties 里指向本机 SDK，换机器请改 sdk.dir
-./gradlew :app:assembleDebug
-./gradlew :app:testDebugUnitTest
-Windows 上没有 Gradle 时可以直接用解压好的分发包：
 
-powershell
-
-
-$env:ANDROID_HOME="C:\Users\<you>\AppData\Local\Android\Sdk"
-& "<gradle-8.9>\bin\gradle.bat" -p "<repo>" :app:assembleDebug
-产物：app/build/outputs/apk/debug/app-debug.apk（约 57 MB，其中大部分是 ML Kit 的中文识别模型）。
-
-安装到模拟器 / 手机
-bash
-
-
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.anshi.pill/.MainActivity
 第一次打开会申请通知权限和相机权限。Android 12 以上如果系统没给「闹钟与提醒」权限，应用会退回不精确的闹钟并单独提示；设置页会显示状态并提供跳转。
 
-增量更新怎么用
-发一个版本
-改 app/build.gradle.kts 里的 versionCode 和 versionName，构建出新包。
-用上一版安装包当基线，生成补丁和清单：
-bash
-
-
-python tools/make_update.py old.apk new.apk \
-    --version-code 2 --version-name 1.1 \
-    --notes-file tools/notes.txt \
-    --out dist
---notes 也可以直接写，但 Windows 命令行里的中文容易变乱码，建议用 --notes-file（UTF-8 文本）。
-
-把 dist/ 整个目录放到任意静态服务上（Nginx、对象存储、GitHub Pages 都行）：
-代码块
-
-
-dist/update.json      清单：版本号、说明、补丁与整包的地址 / 大小 / SHA-256
-dist/patch-2.bin      补丁，只含变动的片段
-dist/app-2.apk        完整包，补丁对不上时的兜底
-本地自测：
-
-bash
-
-
-python tools/serve.py dist --port 8765
-# 模拟器里访问宿主用 10.0.2.2：http://10.0.2.2:8765/
-手机这边
-设置 → 更新 → 填更新地址（指向放着 update.json 的目录，末尾带 /）→ 检查更新 → 更新。 App 会先下补丁（界面上显示「只下 N KB」），按内容分块合并出新包，校验 SHA-256 通过后交给系统安装器，用户点一下「更新」即可，数据不动。
-
-地址也可以在打包时写死，用户在设置里就不用填了：改 app/build.gradle.kts 里的
-
-kotlin
-
-
-buildConfigField("String", "UPDATE_BASE_URL", "\"https://cdn.example.com/anshi/\"")
-设置页里手填的地址优先于这个默认值。断线会自动重试（三次，支持断点续传），补丁对不上或校验不过会退到整包。
-
-补丁格式
-data/DeltaPatch.kt 与 tools/make_update.py 用的是同一套按内容切块（CDC）的规则：
-
-代码块
-
-
-GEAR(b)  = ((b * 0x9E3779B1) & 0xFFFFFFFF) ^ 高 15 位异或回去
-h        = ((h << 1) + GEAR(b)) & 0xFFFFFFFF
-块长 ≥ 2048 且 h & 0x1FFF == 0 时切块，最长 16384
-两边切出来的边界在相同内容上一致，所以新包里没变的片段可以直接「从旧包第 X 字节复制 Y 字节」，只有真正改动的块才带上原始字节。补丁文件格式：
-
-代码块
-
-
-"ANSHI01\0"            8 字节魔数
-u32 版本 = 1
-u32 新包总长度
-u32 操作数
-逐个操作：
-  u8 0 + u32 偏移 + u32 长度     从旧包复制
-  u8 1 + u32 长度 + 字节         新内容
-实测：1.0 → 1.1（只改了版本号和少量代码）补丁 93 KB，约等于新包的 1.6‰。
 
 代码结构
 代码块
